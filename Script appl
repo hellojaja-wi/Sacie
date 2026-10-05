@@ -1,0 +1,514 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local localPlayer = Players.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
+-- Biến Trạng Thái Toggles
+local noclipEnabled = false
+local wallWalkEnabled = false
+local swimEnabled = false
+local autoClaimCoinsEnabled = false
+
+-- =========================================================
+-- 1. TẠO GIAO DIỆN MENU (UI)
+-- =========================================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DeltaXMultiToolUI"
+screenGui.Parent = (gethui and gethui()) or CoreGui or localPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 260, 0, 450)
+mainFrame.Position = UDim2.new(0.15, 0, 0.15, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+-- Title Bar
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -30, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+title.Text = "  Delta X Super Menu v10"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = mainFrame
+
+Instance.new("UICorner", title).CornerRadius = UDim.new(0, 8)
+
+-- Close Button (X)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 35)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 14
+closeBtn.Parent = mainFrame
+
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+-- Open Button
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0, 90, 0, 30)
+openBtn.Position = UDim2.new(0, 10, 0.5, 0)
+openBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+openBtn.Text = "Open Menu"
+openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openBtn.Font = Enum.Font.SourceSansBold
+openBtn.TextSize = 12
+openBtn.Visible = false
+openBtn.Parent = screenGui
+
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 6)
+
+-- Scroll Container Main
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -10, 1, -45)
+scroll.Position = UDim2.new(0, 5, 0, 40)
+scroll.BackgroundTransparency = 1
+scroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+scroll.ScrollBarThickness = 4
+scroll.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scroll
+
+local function createButton(text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.95, 0, 0, 32)
+    btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 13
+    btn.Parent = scroll
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+-- 1. Noclip Button
+local btnNoclip = createButton("Noclip (Đi Xuyên Tường): OFF")
+
+-- 2. Wall Walk Button
+local btnWallWalk = createButton("Wall Walk (Đi Trên Tường): OFF")
+
+-- 3. Swim / Fling Button
+local btnSwim = createButton("Swim In Air (Bơi Trên Không): OFF")
+
+-- 4. Auto Claim Coins Button (ĐÃ CẬP NHẬT LOGIC MOVED BACK & 90s COOLDOWN)
+local btnAutoClaim = createButton("Auto Claim Coins (Smart Return): OFF")
+
+-- 5. TP Player Input & Button
+local tpInput = Instance.new("TextBox")
+tpInput.Size = UDim2.new(0.95, 0, 0, 32)
+tpInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+tpInput.PlaceholderText = "Nhập tên người chơi để TP..."
+tpInput.Text = ""
+tpInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpInput.Font = Enum.Font.SourceSans
+tpInput.TextSize = 13
+tpInput.Parent = scroll
+Instance.new("UICorner", tpInput).CornerRadius = UDim.new(0, 6)
+
+local btnTPName = createButton("Teleport Tới Người Chơi")
+btnTPName.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+
+-- 6. Smart Distance TP Container
+local smartTPFrame = Instance.new("Frame")
+smartTPFrame.Size = UDim2.new(0.95, 0, 0, 110)
+smartTPFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+smartTPFrame.Parent = scroll
+Instance.new("UICorner", smartTPFrame).CornerRadius = UDim.new(0, 6)
+
+local smartScroll = Instance.new("ScrollingFrame")
+smartScroll.Size = UDim2.new(1, -6, 1, -6)
+smartScroll.Position = UDim2.new(0, 3, 0, 3)
+smartScroll.BackgroundTransparency = 1
+smartScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+smartScroll.ScrollBarThickness = 3
+smartScroll.Parent = smartTPFrame
+
+local smartLayout = Instance.new("UIListLayout")
+smartLayout.Padding = UDim.new(0, 4)
+smartLayout.Parent = smartScroll
+
+-- 7. TP Tool Button
+local btnTPTool = createButton("Nhận TP Tool (Teleport Click)")
+btnTPTool.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+
+-- 8. PLAYER LIST UI (3D View & Instant TP)
+local listTitle = Instance.new("TextLabel")
+listTitle.Size = UDim2.new(0.95, 0, 0, 20)
+listTitle.BackgroundTransparency = 1
+listTitle.Text = "--- Danh Sách Player (3D View & Instant TP) ---"
+listTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+listTitle.Font = Enum.Font.SourceSansBold
+listTitle.TextSize = 11
+listTitle.Parent = scroll
+
+local playerListFrame = Instance.new("Frame")
+playerListFrame.Size = UDim2.new(0.95, 0, 0, 180)
+playerListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+playerListFrame.Parent = scroll
+Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0, 6)
+
+local playerListScroll = Instance.new("ScrollingFrame")
+playerListScroll.Size = UDim2.new(1, -6, 1, -6)
+playerListScroll.Position = UDim2.new(0, 3, 0, 3)
+playerListScroll.BackgroundTransparency = 1
+playerListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerListScroll.ScrollBarThickness = 3
+playerListScroll.Parent = playerListFrame
+
+local playerListLayout = Instance.new("UIListLayout")
+playerListLayout.Padding = UDim.new(0, 6)
+playerListLayout.Parent = playerListScroll
+
+-- =========================================================
+-- LOGIC TÍNH NĂNG
+-- =========================================================
+
+-- LOGIC MỚI: AUTO CLAIM COINS (LƯU VỊ TRÍ + 90 GIÂY COOLDOWN)
+task.spawn(function()
+    while true do
+        if autoClaimCoinsEnabled then
+            pcall(function()
+                local char = localPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+                if hrp then
+                    -- 1. Lưu lại tọa độ vị trí cuối cùng trước khi dịch chuyển
+                    local originalCFrame = hrp.CFrame
+
+                    -- 2. Tìm vị trí 8kCoinsGiver và dịch chuyển tới
+                    local targetGiver = workspace:FindFirstChild("8kCoinsGiver", true)
+                    if targetGiver then
+                        local giverCFrame = targetGiver:IsA("BasePart") and targetGiver.CFrame or targetGiver:GetPivot()
+                        hrp.CFrame = giverCFrame * CFrame.new(0, 3, 0)
+                        task.wait(0.3) -- Chờ 0.3s để game cập nhật vị trí
+                    end
+
+                    -- 3. Gửi lệnh lấy tiền
+                    local remote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("mapManagerRemote")
+                    remote:FireServer("claimCoins", "8kCoinsGiver")
+                    task.wait(0.2)
+
+                    -- 4. Dịch chuyển quay trở lại ngay vị trí ban đầu
+                    hrp.CFrame = originalCFrame
+                end
+            end)
+
+            -- Chờ đúng 1 phút 30 giây (90 giây) trước khi lấy lượt tiếp theo
+            task.wait(90)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+btnAutoClaim.MouseButton1Click:Connect(function()
+    autoClaimCoinsEnabled = not autoClaimCoinsEnabled
+    btnAutoClaim.Text = autoClaimCoinsEnabled and "Auto Claim Coins: ON" or "Auto Claim Coins (Smart Return): OFF"
+    btnAutoClaim.BackgroundColor3 = autoClaimCoinsEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- 1. NOCLIP
+RunService.Stepped:Connect(function()
+    if noclipEnabled and localPlayer.Character then
+        for _, part in ipairs(localPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+btnNoclip.MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    btnNoclip.Text = noclipEnabled and "Noclip (Đi Xuyên Tường): ON" or "Noclip (Đi Xuyên Tường): OFF"
+    btnNoclip.BackgroundColor3 = noclipEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- 2. WALL WALK
+RunService.RenderStepped:Connect(function()
+    if wallWalkEnabled and localPlayer.Character then
+        local hrp = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterAncestorsInstances = {localPlayer.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+            local rayResult = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 3, raycastParams)
+            if rayResult and rayResult.Instance then
+                local normal = rayResult.Normal
+                hrp.CFrame = CFrame.new(hrp.Position, hrp.Position - normal) * CFrame.Angles(math.rad(90), 0, 0)
+            end
+        end
+    end
+end)
+
+btnWallWalk.MouseButton1Click:Connect(function()
+    wallWalkEnabled = not wallWalkEnabled
+    btnWallWalk.Text = wallWalkEnabled and "Wall Walk: ON" or "Wall Walk: OFF"
+    btnWallWalk.BackgroundColor3 = wallWalkEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- 3. SWIM IN AIR
+RunService.RenderStepped:Connect(function()
+    if swimEnabled and localPlayer.Character then
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+        end
+    end
+end)
+
+btnSwim.MouseButton1Click:Connect(function()
+    swimEnabled = not swimEnabled
+    btnSwim.Text = swimEnabled and "Swim In Air: ON" or "Swim In Air: OFF"
+    btnSwim.BackgroundColor3 = swimEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- TP PLAYER BY NAME
+btnTPName.MouseButton1Click:Connect(function()
+    local targetText = tpInput.Text:lower():gsub("%s+", "")
+    if targetText == "" then return end
+
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= localPlayer and (target.Name:lower():find(targetText) or target.DisplayName:lower():find(targetText)) then
+            if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                localPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+            end
+            break
+        end
+    end
+end)
+
+-- SMART DISTANCE TP LIST
+local function updateSmartTPList()
+    for _, child in ipairs(smartScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local myHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local count = 0
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            count = count + 1
+            local targetHRP = player.Character.HumanoidRootPart
+            local distance = (myHRP.Position - targetHRP.Position).Magnitude
+
+            local itemFrame = Instance.new("Frame")
+            itemFrame.Size = UDim2.new(1, -5, 0, 30)
+            itemFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+            itemFrame.Parent = smartScroll
+            Instance.new("UICorner", itemFrame).CornerRadius = UDim.new(0, 4)
+
+            local pName = Instance.new("TextLabel")
+            pName.Size = UDim2.new(0.65, 0, 0.7, 0)
+            pName.Position = UDim2.new(0.02, 0, 0.05, 0)
+            pName.Text = player.DisplayName .. " (" .. math.floor(distance) .. "s)"
+            pName.TextColor3 = Color3.fromRGB(255, 255, 255)
+            pName.Font = Enum.Font.SourceSans
+            pName.TextSize = 11
+            pName.TextXAlignment = Enum.TextXAlignment.Left
+            pName.Parent = itemFrame
+
+            local statusIndicator = Instance.new("Frame")
+            statusIndicator.Size = UDim2.new(0.65, 0, 0.2, 0)
+            statusIndicator.Position = UDim2.new(0.02, 0, 0.75, 0)
+            statusIndicator.Parent = itemFrame
+
+            local tpBtn = Instance.new("TextButton")
+            tpBtn.Size = UDim2.new(0.28, 0, 0.8, 0)
+            tpBtn.Position = UDim2.new(0.7, 0, 0.1, 0)
+            tpBtn.Font = Enum.Font.SourceSansBold
+            tpBtn.TextSize = 11
+            tpBtn.Parent = itemFrame
+            Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 4)
+
+            if distance <= 900 then
+                statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
+                tpBtn.Text = "TP"
+                tpBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+                tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                tpBtn.MouseButton1Click:Connect(function()
+                    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        localPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
+                    end
+                end)
+            elseif distance >= 1000 then
+                statusIndicator.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+                tpBtn.Text = "Quá Xa"
+                tpBtn.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
+                tpBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            else
+                statusIndicator.BackgroundColor3 = Color3.fromRGB(220, 180, 50)
+                tpBtn.Text = "TP"
+                tpBtn.BackgroundColor3 = Color3.fromRGB(180, 130, 0)
+                tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                tpBtn.MouseButton1Click:Connect(function()
+                    if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        localPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
+                    end
+                end)
+            end
+        end
+    end
+    smartScroll.CanvasSize = UDim2.new(0, 0, 0, count * 34)
+end
+
+-- TP TOOL
+local function equipTPTool()
+    local backpack = localPlayer:WaitForChild("Backpack")
+    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+    if backpack:FindFirstChild("TP") or (character and character:FindFirstChild("TP")) then
+        return
+    end
+
+    local tool = Instance.new("Tool")
+    tool.Name = "TP"
+    tool.RequiresHandle = false
+
+    tool.Activated:Connect(function()
+        local pos = mouse.Hit.Position
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        end
+    end)
+
+    tool.Parent = backpack
+end
+
+RunService.Stepped:Connect(function()
+    pcall(equipTPTool)
+end)
+
+btnTPTool.MouseButton1Click:Connect(function()
+    equipTPTool()
+    btnTPTool.Text = "Đã Cấp TP Tool!"
+    task.wait(1.5)
+    btnTPTool.Text = "Nhận TP Tool (Teleport Click)"
+end)
+
+-- PLAYER LIST 3D & INSTANT TELEPORT
+local selectedPlayerCard = nil
+
+local function updatePlayer3DList()
+    for _, child in ipairs(playerListScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local totalHeight = 0
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer then
+            local card = Instance.new("Frame")
+            card.Size = UDim2.new(1, -5, 0, 40)
+            card.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            card.ClipsDescendants = true
+            card.Parent = playerListScroll
+            Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+            local vp = Instance.new("ViewportFrame")
+            vp.Size = UDim2.new(0, 36, 0, 36)
+            vp.Position = UDim2.new(0, 2, 0, 2)
+            vp.BackgroundTransparency = 1
+            vp.Parent = card
+
+            if player.Character then
+                player.Character.Archivable = true
+                local charClon = player.Character:Clone()
+                charClon.Parent = vp
+
+                local cam = Instance.new("Camera")
+                cam.Parent = vp
+                vp.CurrentCamera = cam
+
+                local head = charClon:FindFirstChild("Head") or charClon:FindFirstChild("HumanoidRootPart")
+                if head then
+                    cam.CFrame = CFrame.new(head.Position + Vector3.new(0, 0.5, 2.5), head.Position)
+                end
+            end
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(0.6, 0, 0.8, 0)
+            nameLabel.Position = UDim2.new(0, 42, 0, 4)
+            nameLabel.Text = player.DisplayName .. "\n@" .. player.Name
+            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextSize = 11
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = card
+
+            local selectBtn = Instance.new("TextButton")
+            selectBtn.Size = UDim2.new(1, 0, 0, 40)
+            selectBtn.BackgroundTransparency = 1
+            selectBtn.Text = ""
+            selectBtn.Parent = card
+
+            local actionTPBtn = Instance.new("TextButton")
+            actionTPBtn.Size = UDim2.new(0.9, 0, 0, 25)
+            actionTPBtn.Position = UDim2.new(0.05, 0, 0, 42)
+            actionTPBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 220)
+            actionTPBtn.Text = "⚡ Dịch Chuyển Tới Đây (Bất Kể Khoảng Cách)"
+            actionTPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            actionTPBtn.Font = Enum.Font.SourceSansBold
+            actionTPBtn.TextSize = 11
+            actionTPBtn.Parent = card
+            Instance.new("UICorner", actionTPBtn).CornerRadius = UDim.new(0, 4)
+
+            actionTPBtn.MouseButton1Click:Connect(function()
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    localPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                end
+            end)
+
+            selectBtn.MouseButton1Click:Connect(function()
+                if selectedPlayerCard == card then
+                    card.Size = UDim2.new(1, -5, 0, 40)
+                    selectedPlayerCard = nil
+                else
+                    if selectedPlayerCard then
+                        selectedPlayerCard.Size = UDim2.new(1, -5, 0, 40)
+                    end
+                    card.Size = UDim2.new(1, -5, 0, 72)
+                    selectedPlayerCard = card
+                end
+            end)
+
+            totalHeight = totalHeight + 46
+        end
+    end
+    playerListScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 40)
+end
+
+-- Cập nhật danh sách Smart TP & 3D Player List định kỳ
+task.spawn(function()
+    while true do
+        pcall(updateSmartTPList)
+        pcall(updatePlayer3DList)
+        task.wait(3)
+    end
+end)
+
+-- Event Đóng/Mở UI
+closeBtn.MouseButton1Click:Connect(function()
